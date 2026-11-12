@@ -33,6 +33,10 @@ services:
       REDIS_URL: redis://redis:6379/0
       JWT_SECRET: ${JWT_SECRET:-local-ordinal-fibers-change-this-before-hosting}
       SEED_DEMO: ${SEED_DEMO:-true}
+      PERM_SEED: ${PERM_SEED:-20261112}
+      PERM_EXHAUSTIVE_LIMIT: ${PERM_EXHAUSTIVE_LIMIT:-100000}
+      PERM_RANDOM_DRAWS: ${PERM_RANDOM_DRAWS:-20000}
+      PERM_BATCH_SIZE: ${PERM_BATCH_SIZE:-500}
       OMP_NUM_THREADS: 1
       OPENBLAS_NUM_THREADS: 1
     ports: ["${BACKEND_PORT:-19231}:8000"]

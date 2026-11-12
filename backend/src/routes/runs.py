@@ -10,3 +10,5 @@ def index(db=Depends(get_db),user=Depends(current_user)):return controller.index
 def create(data:RunInput,db=Depends(get_db),user=Depends(editor)):return controller.create(db,data)
 @router.get('/{id}',response_model=RunOut)
 def detail(id:int,db=Depends(get_db),user=Depends(current_user)):return controller.detail(db,id)
+@router.post('/{id}/retry',response_model=RunOut)
+def retry(id:int,db=Depends(get_db),user=Depends(editor)):return controller.retry(db,id)

@@ -16,11 +16,13 @@ def analyze_study(snapshot,alpha):
         if isinstance(x,bool) or not isinstance(x,(float,int)) or not math.isfinite(x) or not 1<=x<=9 or int(x)!=x:raise ValueError('形成等级必须为1–9整数，非等距性能量')
     by_group=[[r for r in readings if r['treatment_id']==t['id']] for t in treatments]
     if any(len(g)<5 for g in by_group):raise ValueError('每个预定义工艺至少5份独立试样；不得丢掉空组')
-    pool=pooled_rank_test([[r['grade'] for r in g] for g in by_group]);pairs=dunn_all_pairs(pool,alpha);groups=[];ranked=[]
+    pool=pooled_rank_test([[r['grade'] for r in g] for g in by_group]);pairs=dunn_all_pairs(pool,alpha);groups=[];ranked=[];pooled_ranks=[];group_sizes=[]
     for t,g,stats in zip(treatments,by_group,pool['groups']):
         ranks=stats.pop('ranks');frequency={str(k):sum(r['grade']==k for r in g) for k in range(1,10)};groups.append({**t,**stats,'grade_counts':frequency})
         ranked.extend({**r,'treatment_code':t['code'],'treatment_name':t['name'],'pooled_rank':rank} for r,rank in zip(g,ranks))
+        # 置换检验在合并平均秩上保持各组试样数重排；按组顺序拼接的秩与其规模供 run_service 调用。
+        pooled_ranks.extend(float(x) for x in ranks);group_sizes.append(stats['n'])
     for pair in pairs:pair.update(left_code=treatments[pair['i']]['code'],right_code=treatments[pair['j']]['code'],left_name=treatments[pair['i']]['name'],right_name=treatments[pair['j']]['name'])
     normalized_snapshot={'study':snapshot['study'],'treatments':treatments,'readings':readings}
     canonical={'algorithm':'pooled-kw-ties-dunn-holm-v1','snapshot':normalized_snapshot,'alpha':alpha};fingerprint=hashlib.sha256(json.dumps(canonical,sort_keys=True,separators=(',',':'),allow_nan=False).encode()).hexdigest()
-    return {**pool,'groups':groups,'pairs':pairs,'ranked_readings':ranked,'alpha':alpha,'omnibus_reject':pool['p_asymptotic']<=alpha,'family_size':len(pairs),'fingerprint':fingerprint,'snapshot':normalized_snapshot,'p_method':'asymptotic chi-square KW and two-sided normal Dunn; not exact','scope':'independent ordinal samples; distributional differences may reflect shape, not only medians; no process-quality probability or causal conclusion'}
+    return {**pool,'groups':groups,'pairs':pairs,'ranked_readings':ranked,'alpha':alpha,'omnibus_reject':pool['p_asymptotic']<=alpha,'family_size':len(pairs),'fingerprint':fingerprint,'snapshot':normalized_snapshot,'pooled_ranks':pooled_ranks,'group_sizes':group_sizes,'permutation':None,'p_method':'asymptotic chi-square KW and two-sided normal Dunn; not exact','scope':'independent ordinal samples; distributional differences may reflect shape, not only medians; no process-quality probability or causal conclusion'}

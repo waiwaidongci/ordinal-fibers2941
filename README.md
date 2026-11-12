@@ -1,6 +1,6 @@
 # 青蘖纸浆等级比较簿
 
-以全体独立试样的合并平均秩，比较纸浆形成等级的组间分布；保留并列修正、全部Dunn组对和人工复检说明。
+以全体独立试样的合并平均秩，比较纸浆形成等级的组间分布；保留并列修正、全部Dunn组对、人工复检说明，并在同一冻结检验上并列提供渐近与可复算置换两套总体结论。
 
 ## 研究场景
 
@@ -22,10 +22,10 @@
 2. 09:05 核对清水参照、温和酶解、低剪切打浆、复合处理四个预定义工艺，每组30份独立试样，共120份；每份只评一次，编号在本研究内唯一。
 3. 09:15 观察真实等级点阵，确认等级只表示顺序。另两份研究为相近分布、全同等级，合计3研究/12工艺/360份试样。
 4. 09:20 提前设α=.05，命名“形成错位 · 全组秩比较”，冻结全部工艺/试样/等级与说明，再排队由worker计算。
-5. 09:22 阅读总体：H=58.403116，渐近p=1.28925e-12，C=0.9798354。同时查看Dunn方差基数1185.600840和全部6组对；当前Holm拒绝5项。未拒绝组对不会隐藏。
+5. 09:22 阅读总体：H=58.403116，渐近p=1.28925e-12，C=0.9798354；同一页并列置换p（本研究分配数巨大，按固定种子20261112抽样20000次，附标准误与95%置信区间）与计算进度。同时查看Dunn方差基数1185.600840和全部6组对；当前Holm拒绝5项。未拒绝组对不会隐藏。
 6. 09:25 在并列与平均秩页核对Σ(t³−t)=34842，逐份检查合并平均秩。下/上中位位置保留原等级，不把偶数样本插值成3.5级。
 7. 09:35 提出“四工艺独立复检说明”，同时说明拒绝/未拒绝组对、可能的分布形状差异与下一批独立盲评设计。
-8. 10:00 宋槐用admin留批注并同意复检；周予用viewer下载 `followup-note-<id>.csv`，含完整总体、四组摘要与六组对。新数据另建快照，旧结果不回写。
+8. 10:00 宋槐用admin留批注并同意复检；周予用viewer下载 `followup-note-<id>.csv`，含完整总体、置换结论与进度、四组摘要与六组对。新数据另建快照，旧结果不回写。
 
 以上数值来自固定seed真实API/worker结果。seed不预置检验结果，用户需实际排队。
 
@@ -62,6 +62,7 @@ Compose恰好5服务、健康依赖、数据库/Redis/共享artifacts命名卷�
 | DB_PASSWORD | ordinal-demo-local，仅本地示例 |
 | JWT_SECRET | 本地示例，部署前用独立随机键 |
 | SEED_DEMO | true，启动补齐缺失seed |
+| PERM_SEED/PERM_EXHAUSTIVE_LIMIT/PERM_RANDOM_DRAWS/PERM_BATCH_SIZE | 20261112 / 100000 / 20000 / 500，置换检验种子、穷举阈值、抽样次数、检查点批大小 |
 | DATABASE_URL/REDIS_URL | Compose内部地址，本地可覆盖 |
 | OMP_NUM_THREADS/OPENBLAS_NUM_THREADS | 1，数值线程限制 |
 
@@ -75,15 +76,24 @@ Dunn对全部k(k−1)/2组对，使用同一合并秩：`V=N(N+1)/12−T/[12(N�
 
 H的p是χ²渐近，Dunn是正态渐近，不是exact。Holm依赖单项p的适用性，不能把名义alpha说成有限样本无条件保证。等级分布差异可能来自形状；只有额外位置移动/同形状假设才可聚焦中位位置。平均秩差不是等级单位的效应。未拒绝不证明相等/等效。重复测量或配对设计不适用；ID唯一不证明样本独立，批次相关需设计控制。
 
-全同值时C=0，KW与Dunn未定义，任务失败，不输出p=1来假称无差异。非法等级、外部工艺、重复试样、少于5份/组、空组均明确拒绝或留下worker失败态。公式参见 [SciPy Kruskal](https://docs.scipy.org/doc/scipy/reference/generated/scipy.stats.kruskal.html) 与 [Dunn原论文](https://www.stat.cmu.edu/technometrics/59-69/VOL-06-03/v0603241.pdf)。
+### 可复算置换检验与中断恢复
 
-快照按工艺/试样代码规范排序，SHA256覆盖版本、完整输入、alpha；同环境完整复算一致，输入列表顺序不改变整份计算结果。指纹含数据库ID和说明元数据，重建库/修改来源不保证相同指纹。结果同时存数据库和/artifacts/run-<id>.json，全部原始等级、平均秩、并列项与组对可核查。
+为补足大量并列下渐近p只是近似的问题，总体检验在同一份冻结快照上额外计算置换p，与渐近结论并列、互不覆盖。零假设为各组分布相同：对全部N个合并平均秩重新分配，**严格保持各工艺试样数 n_g 不变**，每次分配用与渐近检验完全相同的公式（含同一并列修正C）重算H。
+
+- **穷举或抽样由分配数决定**：保持组大小的不同分配数为多元组合数 C(N; n_1,…,n_k)。不超过 `PERM_EXHAUSTIVE_LIMIT`（默认100000）时按确定词典序穷举全部划分，p = 极端分配数（H_perm ≥ H_obs，含等于、含观察分配自身）/ 全部分配数，标准误为0；否则按 `PERM_RANDOM_DRAWS`（默认20000）次随机分配抽样，使用预设种子 `PERM_SEED`（默认20261112）的NumPy Generator，并随结论报告二项标准误与正态近似95%置信区间。抽样p采用 +1 约定 (extreme+1)/(draws+1)（Phipson & Smyth 2010，与SciPy `permutation_test` 一致），避免零命中时p=0。
+- **可复算**：穷举枚举顺序完全确定，「跳过前 m 个划分」即可回到任意断点；抽样模式把 Generator 的 `bit_generator.state` 随每个检查点持久化，恢复后从该状态继续，恰好不重放已计数抽签。同种子全新重跑、中断后续跑，最终p值与极端计数逐位一致。
+- **中断恢复、不重复计数**：每 `PERM_BATCH_SIZE`（默认500）次分配为一批，批末原子提交一次检查点（数据库JSON与 `/artifacts/run-<id>.json` 经临时文件+`os.replace` 同时落盘）。崩溃只丢失尚未提交的当前批；worker重启后对仍处queued/running的任务从最后检查点续算，已完成数与极端计数不重复累加。若任务已落入failed且存在可续算检查点，编辑者可在运行页调用 `POST /runs/{id}/retry` 重新排队续算；无检查点的校验类失败（如全同值C=0）不允许重试，需核对数据后另建任务。检查点模式/目标/种子/组大小与当前配置不一致时按全新序列重算，绝不混用计数。
+- **旧结果原样保留**：置换检验上线前冻结的任务其 `permutation` 为空，结果页与分发CSV明确标注仅含渐近结论，不回写、不重算；已批准复检说明不可覆盖。新数据一律另建任务，新任务同时保留渐近与置换两套结论及实时计算进度。
+
+全同值时C=0，KW与Dunn未定义，任务失败，不输出p=1来假称无差异。非法等级、外部工艺、重复试样、少于5份/组、空组均明确拒绝或留下worker失败态。公式参见 [SciPy Kruskal](https://docs.scipy.org/doc/scipy/reference/generated/scipy.stats.kruskal.html)、[Dunn原论文](https://www.stat.cmu.edu/technometrics/59-69/VOL-06-03/v0603241.pdf) 与 [Phipson & Smyth (2010) Permutation p-values](https://doi.org/10.2202/1544-6115.1585)。
+
+快照按工艺/试样代码规范排序，SHA256覆盖版本、完整输入、alpha；同环境完整复算一致，输入列表顺序不改变整份计算结果。指纹含数据库ID和说明元数据，重建库/修改来源不保证相同指纹。结果（含逐批置换检查点）同时原子写入数据库和/artifacts/run-<id>.json，全部原始等级、平均秩、并列项与组对可核查。
 
 ## 代码与本地开发
 
 五个实体GradeStudy、Treatment、GradeReading、RankTestRun、FollowupNote各自贯穿model/schema/service/controller/route/API。studyStore、measurementsStore、researchStore承接对应状态；六页为总览、来源、配置、结果、说明、审计，登录另计。GradeDots复用于总览/结果，PairFamilyTable复用于结果/说明；共享PageHeading、StatusBadge、ErrorNotice、StudySelect、RunSelect，hooks useTask/usePolling、format工具。所有宽图/表局部滚动，grid显式minmax(0,1fr)/min-width:0；结果工艺选择按真实已加载组同步。
 
-目录：backend/src/{models,schemas,services,controllers,routes,config,constants,middlewares,utils}；数学services/{rank_pool,dunn,rank_inference}.py；backend/scripts/seed_demo.py与migrations/001_initial.sql。frontend/src/{api,stores,types,constants,components/common,hooks,pages,router,utils}。
+目录：backend/src/{models,schemas,services,controllers,routes,config,constants,middlewares,utils}；数学services/{rank_pool,dunn,rank_inference,permutation}.py，permutation负责穷举/抽样置换、RNG状态与检查点恢复，run_service逐批原子提交并支持 `/runs/{id}/retry` 续算；backend/scripts/seed_demo.py与migrations/001_initial.sql。frontend/src/{api,stores,types,constants,components/common,hooks,pages,router,utils}。
 
 Role/RunStatus/NoteStatus前后端分别定义于backend/src/constants/enums.py和frontend/src/constants/enums.ts，角色类型在types/domain.ts；RunStatus用于运行service/worker，NoteStatus用于schema/service，前端用于状态与账户/页面。等级枚举1–9在前端constants/enums.ts，后端schemas/reading.py与rank_inference.py严格校验。
 
